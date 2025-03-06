@@ -1,0 +1,782 @@
+---
+title: "NULISA TBI Analyses code for doi.org/10.1093/brain/awae305"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+
+##BASIC
+install.packages("writexl")
+library(writexl)
+
+install.packages("ggplot2")
+install.packages("dplyr")
+library(ggplot2)
+library(dplyr)
+
+```{r}
+
+#demographics
+
+tbi_alamar <- subset(alamar_olink, GROUP == "TBI")
+ntt_alamar <- subset(alamar_olink, GROUP=="NTT")
+con_alamar <- subset(alamar_olink, GROUP=="CON")
+data <- tbi_alamar
+
+mean(data$AGE)
+sd(data$AGE)
+table(data$SEX)["Male"]
+
+model <- aov(AGE ~ GROUP, alamar_olink)
+summary(model)
+
+#plot age & sex distribution
+group_order <- c("CON", "NTT", "TBI")
+data$GROUP <- factor(data$GROUP, levels = group_order)
+custom_colors <- c("CON" = "seagreen", "NTT" = "royalblue", "TBI" = "red3")
+dot_colours <- c("Male" = "yellow", "Female" = "magenta")
+
+plot <- ggplot(data, aes(x = GROUP, y = AGE)) +
+  geom_boxplot(fill = custom_colors, color = "black", width = 0.7, alpha=0.8) +
+  geom_jitter(aes(color=SEX),shape = 16, alpha = 1, width = 0.15,size=3) +
+  scale_fill_manual(values = dot_colours, name = "SEX")+
+  labs(x = "GROUP",
+       y = "value") +
+  theme_minimal()
+
+print(plot)
+
+#plot age & hospital duration
+data <- tbi_alamar
+plot2 <- ggplot(data, aes(x = AGE, y = Hospital_duration)) +
+  geom_point(color = "red3", size=3) +
+  labs(x = "AGE", y = "Hospital Duration") +
+  theme_minimal()
+
+print(plot2)
+
+#plot GCSpreH
+data <- tbi_alamar
+order <- c("3-8","9-13","14-15")
+data$GCSpreH <- factor(data$GCSpreH, levels = order)
+
+plot3 <- ggplot(data, aes(x = GCSpreH)) +
+  geom_bar(fill = "red3", color = "black") +
+  labs(x = "pre-Hospital GCS", y = "Count") +
+  theme_minimal()
+
+print(plot3)
+
+
+#plot pupils
+data <- tbi_alamar
+order <- c("BR","UDNR","BDNR")
+data$PupilsED <- factor(data$PupilsED, levels = order)
+
+plot4 <- ggplot(data, aes(x = PupilsED)) +
+  geom_bar(fill = "red3", color = "black") +
+  labs(x = "Pupils in ED", y = "Count") +
+  theme_minimal()
+
+print(plot4)
+
+
+#plot Marshall
+data <- tbi_alamar
+order <- c("1","2","3","4","5","6")
+data$MarshallCT <- factor(data$MarshallCT, levels = order)
+
+plot5 <- ggplot(data, aes(x = MarshallCT)) +
+  geom_bar(fill = "red3", color = "black", position="identity") +
+  scale_x_discrete(drop = FALSE, limits = order) +
+  labs(x = "Marshall Category", y = "Count") +
+  theme_minimal()
+
+print(plot5)
+
+#plot GOSE6m
+data <- tbi_alamar
+order <- c("1","2","3","4","5","6","7","8")
+data$GOSE6m <- factor(data$GOSE6m, levels = order)
+
+plot6 <- ggplot(data, aes(x = GOSE6m)) +
+  geom_bar(fill = "red3", color = "black", position="identity") +
+  scale_x_discrete(drop = FALSE, limits = order) +
+  labs(x = "6m GOSE", y = "Count") +
+  theme_minimal()
+
+print(plot6)
+
+#plot GOSE12m
+data <- tbi_alamar
+order <- c("1","2","3","4","5","6","7","8")
+data$GOSE12m <- factor(data$GOSE12m, levels = order)
+
+plot7 <- ggplot(data, aes(x = GOSE12m)) +
+  geom_bar(fill = "red3", color = "black", position="identity") +
+  scale_x_discrete(drop = FALSE, limits = order) +
+  labs(x = "12m GOSE", y = "Count") +
+  theme_minimal()
+
+print(plot7)
+
+
+#plot NTT ECI type
+data <- ntt_alamar
+
+plot8 <- ggplot(data, aes(x = ECI)) +
+  geom_bar(fill = "royalblue", color = "black") +
+  labs(x = "ECI", y = "Count") +
+  theme_minimal()
+
+print(plot8)
+
+```
+
+
+
+```{r}
+#correlation matrix of overlapping tests
+#OLINK v NULISA and also NULISA CNS v NULISA INFLAMM
+#did not include TAU (ELISA) vs. NULISA p-tau subtypes
+
+library(readxl)
+panel_comps <- read_excel("~/Documents/WORK/ACL/bioax_samples/dataset/alamar/panel_comps.xlsx")
+#OPTION: panel_comps <- read_excel("~/Documents/WORK/ACL/bioax_samples/dataset/alamar/panel_comps_alamarCNSvInflamm.xlsx")
+  
+panel_comps$CXCL1_OLINK <- as.numeric(panel_comps$CXCL1_OLINK) #for some reason, this gets imported as a string column
+
+cleanpaneldata <- na.omit(panel_comps)
+OLINKvals <- cleanpaneldata[, 6:35]
+NULISACNSvals <- cleanpaneldata[,6:53]
+NULISAInfvals <- cleanpaneldata[,54:101]
+
+correlation_matrix <- cor(OLINKvals,NULISAvals,method="pearson")
+#OPTION: correlation_matrix <- cor(NULISACNSvals,NULISAInfvals,method="pearson")
+#only works if all columns are numeric, so check this if error
+
+corrplot(correlation_matrix,type="upper",order="original",tl.cex=0.7,addCoef.col="darkorange",number.cex=0.5)
+#addCoef.col adds coef value over the circles
+
+```
+
+install.packages("tidyr")
+library(tidyr)
+
+```{r}
+## Plots of overlapping proteins
+panel_comps_long <- gather(cleanpaneldata,key="PROTEIN",value="VALUE",-ALAMAR_ID,-ALAMAR_platepos,-BIOAX_ID,-GROUP,-TIMEPOINT)
+panel_comps_long <- panel_comps_long[,-c(1,2)]
+
+specific_values <- c("GFAP_ELISA","NFL_ELISA","S100B_ELISA","TAU_ELISA")
+#OPTION: specific_values <- c("GFAP","NEFL","S100B","MAPT")
+#OPTION: specific_values <- c("CCL3_OLINK","CCL4_OLINK","CXCL10_OLINK","MCP1_OLINK","MCP4_OLINK","IFNg_OLINK","IL6_OLINK","IL7_OLINK","IL10_OLINK","S100A12_OLINK")
+#OPTION: specific_values <- c("CCL3","CCL4","CXCL10","CCL2","CCL13","IFNG","IL6","IL7","IL10","S100A12")
+
+forplots <- panel_comps_long[panel_comps_long$PROTEIN %in% specific_values, ]
+custom_colors <- c("CON" = "seagreen", "NTT" = "royalblue", "TBI" = "red3")
+
+plot <- ggplot(forplots,aes(x=PROTEIN,y=VALUE,fill=GROUP))+
+    geom_boxplot()+
+    facet_wrap(~PROTEIN,scale="free")+
+    scale_fill_manual(values = custom_colors)+
+    labs(title="CYTOKINE/IMMUNE", x = "PROTEIN", y = "VALUE")
+
+print(plot)
+
+```
+
+
+```{r}
+#ANOVAs
+
+
+model <- aov(MAPT ~ GROUP,data=cleanpaneldata)
+summary(model)
+tukeymodel <- TukeyHSD(model)
+print(tukeymodel)
+
+model2 <- aov(TAU_ELISA ~ GROUP,data=cleanpaneldata)
+summary(model2)
+tukeymodel2 <- TukeyHSD(model2)
+print(tukeymodel2)
+
+```
+
+
+
+##plot and anova of cytokines by group
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+data <- alamar_olink #replace with whatever file you want to plot, long format
+
+group_order <- c("CON", "NTT", "TBI")
+
+data$GROUP <- factor(data$GROUP, levels = group_order)
+
+#define outliers in case want to plot without them
+is_outlier <- function(x) {
+  q1 <- quantile(x, 0.25)
+  q3 <- quantile(x, 0.75)
+  iqr <- q3 - q1
+  lower_bound <- q1 - 1.5 * iqr
+  upper_bound <- q3 + 1.5 * iqr
+  return(x < lower_bound | x > upper_bound)
+}
+
+data_no_outliers <- subset(data, !is_outlier(IL6_IL10_OLINK))
+
+# Create the boxplot with individual values as dots - replace protein name as needed
+plot <- ggplot(data, aes(x = GROUP, y = Flt3L)) +
+  geom_boxplot(fill = "lightblue", color = "blue", width = 0.7) +
+  geom_jitter(shape = 16, color = "darkred", alpha = 0.7, width = 0.2) +
+  labs(title = "Flt3L",
+       x = "GROUP",
+       y = "value") +
+  theme_minimal()
+
+
+# Print the plot
+#print(plot)
+
+#anova - replace protein name as needed
+model <- aov(Flt3L ~ GROUP,data=alamar_olink)
+summary(model)
+tukeymodel <- TukeyHSD(model)
+print(tukeymodel)
+
+```
+
+install.packages("corrplot")
+library(corrplot)
+```{r}
+# correlation matrix of TBI-specific (from DE analysis) proteins with each other
+
+tbi_alamar <- data <- subset(alamar_olink, GROUP == "TBI")
+
+#create correlation input with only the values
+tbi_alamar_corinput <-subset( tbi_alamar[,c("CALB2","UCHL1","VSNL1","S100B","GFAP","MAPT","pTau.231","PSEN1","Abeta42","YWHAG","IL16","CCL2","FCN2","SQSTM1","MDH1","SFRP1")])
+
+cleandata <- na.omit(tbi_alamar_corinput)
+
+#do the correlation
+tbi_alamar_cormat <- rcorr(as.matrix(cleandata),type="spearman")
+
+#correct p values for multiple comparisons
+p_values_matrix <- tbi_alamar_cormat$P
+vector_p_values <- as.vector(p_values_matrix)
+corrected_p_values <- p.adjust(p_values_matrix, method = "fdr")
+corrected_p_values_matrix <- matrix(corrected_p_values, nrow = nrow(p_values_matrix), ncol = ncol(p_values_matrix))
+
+#matrix with corrected p values
+correctedp_tbi_alamar_cormat <- tbi_alamar_cormat
+correctedp_tbi_alamar_cormat$P <- corrected_p_values_matrix
+cormat <- correctedp_tbi_alamar_cormat$r
+pvalues <- correctedp_tbi_alamar_cormat$P
+filtered_cormat <- cormat * (pvalues < 0.05)
+
+#original plot
+plot <- corrplot(tbi_alamar_cormat$r,type="upper",order="original",tl.cex=0.4)
+
+#plot with corrected p values
+plotpadj <- corrplot(filtered_cormat,type="upper",order="original",tl.cex=0.8)
+
+```
+
+```{r}
+#correlation matrix of v1_MRI FA & TBI-specific (from DE analysis) alamar protein values - correcting and calculating only for the correlations between MRI values and the proteins (not MRI v MRI etc.)
+
+tbi_alamar_corinput <-subset( tbi_alamar[,c("LesionVol","Zscore_mean_skeletonFA_v1","meanCCFA_v1","CALB2","UCHL1","VSNL1","S100B","GFAP","MAPT","pTau.231","PSEN1","Abeta42","YWHAG","IL16","CCL2","FCN2","SQSTM1","MDH1","SFRP1")])
+
+cleandata <- na.omit(tbi_alamar_corinput)
+
+#do the correlation
+correlation_matrix <- rcorr(as.matrix(cleandata),type="spearman")
+#NB: this does correlation of everything against everything
+
+#correct p values for multiple comparisons
+p_values_matrix <- correlation_matrix$P
+vector_p_values <- as.vector(p_values_matrix)
+p_values_matrix[1:3,1:3] <- NA #remove all the non-relevant correlation p-values so adjustment is only with the relevant ones
+p_values_matrix[4:nrow(p_values_matrix),4:ncol(p_values_matrix)] <- NA #remove all the non-relevant correlation p-values so adjustment is only with the relevant ones
+corrected_p_values <- p.adjust(p_values_matrix, method = "fdr")
+corrected_p_values_matrix <- matrix(corrected_p_values, nrow = nrow(p_values_matrix), ncol = ncol(p_values_matrix))
+
+#matrix with corrected p values
+correctedp_correlation_matrix <- correlation_matrix
+correctedp_correlation_matrix$P <- corrected_p_values_matrix
+correlation_r <- correctedp_correlation_matrix$r
+pvalues <- correctedp_correlation_matrix$P
+filtered_correlation_r <- correlation_r * (pvalues < 0.05)
+
+# Exclude correlations with blood markers and imaging measures
+# Assuming first two columns are imaging markers and the rest are blood tests
+correlation_r <- correlation_matrix$r
+correlation_r[1:3,1:3] <- NA
+correlation_r[4:nrow(correlation_r),4:ncol(correlation_r)] <- NA
+corrplot(correlation_r, method="circle",order="original",type="upper",tl.cex=0.7)
+
+# correlations with adjusted p (fdr) <0.05 shown only
+filtered_correlation_r[1:3,1:3] <- NA
+filtered_correlation_r[4:nrow(filtered_correlation_r),4:ncol(filtered_correlation_r)] <- NA
+# Plot the correlation matrix
+corrplot(filtered_correlation_r, method="circle",order="original",type="upper",tl.cex=0.7)
+
+
+
+
+```
+
+
+# Load dplyr for data manipulation
+library(dplyr)
+
+```{r}
+#get median values by Group for FOLD CHANGES
+
+data <- alamar_olink
+
+# Calculate median values
+median_values <- data %>%
+  group_by(GROUP) %>%
+  dplyr::summarize(Median_Value = median(MAPT, na.rm = TRUE))
+
+#create a dataframe with the median values, ready to calculate fold changes
+fold_changes$MAPT <- median_values$Median_Value
+
+# Print the result
+print(fold_changes)
+```
+library(ggplot2)
+library(Hmisc)
+```{r}
+#CORRELATIONS WITH IMAGING
+
+data <-tbi_alamar[,c("LesionVol","PSEN1")]
+
+#look within a given group (as there may be MRI differences between groups)
+rcorr(data$LesionVol, data$PSEN1, type="spearman")
+
+temp_data <- data[,c("LesionVol", "PSEN1")]
+temp_data <- na.omit(temp_data)
+
+#plot with smoothed line
+plot <- ggplot(temp_data, aes(x = LesionVol, y = PSEN1)) +
+  geom_point(color = "black", size = 3) +  # Add scatterplot points
+  geom_smooth(method = "auto", se = TRUE) +  # Add regression line (automatic method selection, no standard error)
+  labs(x = "LesionVol", y = "PSEN1") +  # Label axes
+  theme_minimal()  # Apply minimal theme
+
+#plot with linear line
+plot <- plot(temp_data$PSEN1, temp_data$LesionVol, pch=19, col="black", cex=1.5)
+abline(lm(LesionVol ~ PSEN1, data = temp_data), col = "red")
+
+```
+
+
+install.packages("ggplot2")
+library(ggplot2)
+
+```{r}
+## plot and compare GOSE categories
+
+#have data that only has those who have a GOSE outcome
+data <- alamar_olink[!is.na(alamar_olink$GOSE6mCAT), ]
+
+#plot data
+plot <- ggplot(data, aes(x = GOSE6mCAT, y = CXCL8)) +
+  geom_boxplot(fill = "lightblue", color = "blue", width = 0.7) +
+  geom_jitter(shape = 16, color = "darkred", alpha = 0.7, width = 0.2) +
+  labs(title = "IL8 GOSE6m category", x = "GOSE6m CAT", y = "NPQ")
+
+print(plot)
+
+#ttest
+t.test(CXCL8 ~ GOSE6mCAT, data=data)
+
+#
+```
+```{r}
+## plot imaging/ other two-group differences
+
+subset_alamar <- alamar_olink[alamar_olink$GROUP %in% c("CON", "TBI"), ]
+
+#have data that only has those who have a <<GOSE outcome>>
+data <- subset_alamar[!is.na(subset_alamar$meanCCFA_v1), ]
+
+group_colours=c("seagreen","red3")
+
+#plot data
+plot <- ggplot(data, aes(x = GROUP, y = meanCCFA_v1, fill = GROUP)) +
+  geom_boxplot(color = "black", width = 0.7, outlier.shape = NA) +
+  geom_jitter(shape = 16, color = "darkblue", alpha = 0.7, width = 0.2) +
+  labs(title = "CC FA v1", x = "GROUP", y = "CC FA v1") +
+  scale_fill_manual(values = group_colours)
+  
+
+print(plot)
+
+#ttest
+t.test(meanCCFA_v1 ~ GROUP, data=subset_alamar)
+```
+
+install.packages("ggplot2")
+install.packages("ggrepel")
+install.packages("BiocManager")
+install.packages("openxlsx")
+BiocManager::install("DESeq2") #for count data integer only
+BiocManager::install("limma")
+BiocManager::install("ROTS")
+
+library(openxlsx)
+#library(DESeq2)
+library(limma)
+#library(ROTS)
+library(ggplot2)
+library(ggrepel)
+
+#Useful links:
+# https://support.bioconductor.org/p/9135581/#9135807
+
+```{r}
+### DIFFERENTIAL EXPRESSION & VOLCANO PLOTS ###
+
+alamar_proteins <- c("ACHE","AGRN","ANXA5","Abeta38","Abeta40","Abeta42","APOE","APOE4","BACE1","BASP1","BDNF","CALB2","CCL11","CCL13","CCL17","CCL2","CCL22","CCL26","CCL3","CCL4","CD40LG","CD63","CHI3L1","CHIT1","CNTN2","CRH","CRP","CSF2","CST3","CX3CL1","CXCL1","CXCL10","CXCL8","ENO2","FABP3","FCN2","FGF2","FLT1","FOLR1","GDNF","GFAP","GOT1","HBA1","ICAM1","IFNG","IGF1","IGFBP7","IL10","IL12p70","IL13","IL15","IL16","IL17A","IL18","IL1b","IL2","IL33","IL4","IL5","IL6","IL6R","IL7","IL9","KDR","KLK6","MAPT","MDH1","MME","MSLN","NCAM1","NEFH","NFL","NGF","NPTX1","NPTX2","NPTXR","NPY","NRGN","OligoSNCA","PARK7","PDGFRB","PDLIM5","PGF","PGK1","POSTN","PRDX6","PSEN1","pTau181","pTau217","pTau231","pTDP43.409","PTN","REST","RUVBL2","S100A12","S100B","SAA1","SFRP1","SFTPD","SLIT2","SMOC1","SNAP25","SNCA","SOD1","SQSTM1","TAFA5","TARDBP","TEK","TIMP3","TNF","TREM1","TREM2","UCHL1","VCAM1","VEGFA","VEGFD","VGF","VSNL1","YWHAG","YWHAZ")
+
+samples <- c("505500_NTT","505806_NTT","503871_TBI","505606_TBI","504124_TBI","504027_TBI","505479_TBI","505335_TBI","504089_CON","504086_CON","505260_CON","505496_CON","505115_TBI","505099_NTT","505402_CON","505534_CON","505252_CON","503962_TBI","505414_CON","503812_TBI","504073_TBI","505251_CON","505169_CON","505383_TBI","505415_TBI","505309_CON","505809_NTT","505304_NTT","505502_NTT","505607_TBI","505361_CON","504178_TBI","505365_NTT","505133_TBI","505218_CON","505429_CON","505517_NTT","504119_TBI","504101_CON","505533_NTT","505368_CON","505091_NTT","505379_NTT","505175_TBI","505347_TBI","505354_CON","505524_CON","503953_TBI","505235_CON","504159_TBI","505060_TBI","503923_TBI","504134_TBI","505397_TBI","504021_TBI","505472_TBI","505802_NTT","504085_CON","505803_NTT","505317_NTT","505328_NTT","503971_TBI","505834_TBI","505552_NTT","505333_NTT","504098_TBI","505334_CON","505573_CON","505570_TBI","505465_TBI","505130_CON","505551_NTT","505380_NTT","503897_TBI","505542_NTT","503823_TBI","505319_CON","505163_CON","503896_TBI","504132_TBI","505377_NTT","503857_TBI","505094_CON","505263_TBI","505316_NTT","505469_TBI")
+
+GROUP <- c("NTT","NTT","TBI","TBI","TBI","TBI","TBI","TBI","CON","CON","CON","CON","TBI","NTT","CON","CON","CON","TBI","CON","TBI","TBI","CON","CON","TBI","TBI","CON","NTT","NTT","NTT","TBI","CON","TBI","NTT","TBI","CON","CON","NTT","TBI","CON","NTT","CON","NTT","NTT","TBI","TBI","CON","CON","TBI","CON","TBI","TBI","TBI","TBI","TBI","TBI","TBI","NTT","CON","NTT","NTT","NTT","TBI","TBI","NTT","NTT","TBI","CON","CON","TBI","TBI","CON","NTT","NTT","TBI","NTT","TBI","CON","CON","TBI","TBI","NTT","TBI","CON","TBI","NTT","TBI")
+
+group <- c("CON","NTT","TBI")
+
+#import alamar_DEmatrix.xlsx
+# data needs to be values only - rows are proteins, columns are sampleIDs
+
+  #start of DE analyses
+data <- alamar_DEmatrix
+samplehead <- samples
+GROUPinfo <- GROUP
+
+colnames(data) <- samplehead
+rownames(data) <- alamar_proteins
+
+sample_info <- data.frame(sample = samplehead,  group = GROUPinfo)
+
+
+# Fit linear model, make contrast matrix, do DE analysis and print table of results
+design <- model.matrix(~0 + group, data = sample_info)
+fit <- lmFit(data, design)
+
+contrast_matrix <- makeContrasts(groupTBI - groupCON, groupTBI - groupNTT, groupNTT - groupCON, levels = colnames(design))
+
+fit_contrast <- contrasts.fit(fit, contrast_matrix)
+fit_ebayes <- eBayes(fit_contrast, robust=TRUE) #key results object, robust flag recommended by Gordon Smyth for proteomics (https://www.biostars.org/p/496806/)
+results_coef <- topTable(fit_ebayes, coef = 1, number = Inf, adjust.method = "fdr") 
+#adjusted p, gives values to plot volcano plots
+#can export 'results...' into excel
+results_groupdiff <- topTable(fit_ebayes, number = Inf, adjust.method = "fdr")
+#gives pairwise differences
+row_names_coef <- data.frame(RowNames = row.names(results_coef))
+row_names_groupdiff <- data.frame(RowNames = row.names(results_groupdiff)) #need to do this to export as rownames aren't exported into excel
+
+#do pairwise comparisons
+coefficients <- coef(fit_ebayes)
+
+group_pairs <- list(c("CON", "NTT"), c("CON", "TBI"), c("NTT", "TBI"))
+```
+
+```{r}
+  #volcano plots
+library(ggplot2)
+library(ggrepel)
+
+plot <- ggplot(results_groupdiff, aes(x = groupNTT...groupCON, y = -log10(adj.P.Val))) +
+  geom_point(aes(color = ifelse(adj.P.Val < 0.05, "significant", "non-significant")), alpha = 0.6) +
+  geom_text_repel(aes(label = row.names(results_groupdiff), color = ifelse(adj.P.Val < 0.05, "significant", "non-significant")), hjust = 0, vjust = 0, size = 6, max.overlaps = 15) +
+  scale_color_manual(values = c("significant" = "red", "non-significant" = "black")) +
+  geom_vline(xintercept = c(0.58496, -0.58496), linetype = "dashed", color = "black") +
+  guides(color = "none") +
+  labs(title = "TBI v. CON Volcano Plot", x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") +
+  theme_minimal()+
+  theme(
+    axis.text = element_text(size = 16),  # Adjust axis text size
+    axis.title = element_text(size = 18),  # Adjust axis title size
+    plot.title = element_text(size = 20)  # Adjust plot title size
+  )
+
+
+
+print(plot)
+
+```
+
+
+
+```{r}
+#plots for differential exp
+
+#TBI>CON
+specific_values <- c("GFAP", "IL6", "SAA1","CRP","NEFH","NEFL","CHI3L1","HBA1","REST","IL33","FABP3","MAPT","S100B","IL10","CRH","VSNL1","pTau-231","S100A12","TAFA5","CXCL8")
+
+#TBI>NTT
+#OPTION: specific_values <- c("GFAP","NEFH","NEFL","PGK1", "MAPT","IL6","S100B","VSNL1","ENO2","FABP3","CHI3L1","IL1B","pTDP43-409","PARK7","IL33","REST","pTau-231","RUVBL2","IL18","SFRP1")
+
+#NTT>CON
+#OPTION: specific_values <- c("SAA1","IL6","CRP","HBA1", "S100A12","NEFH", "CHI3L1","REST","IL33","CRH","IL10","NEFL","PGK1","IL4","CNTN2","FABP3","pTDP43-409","PGF","ENO2","CXCL8")
+
+#all significant alamar - delete # from the one to plot
+#specific_values <- c("Abeta42","BACE1","FABP3","HBA1","KLK6","Oligo-SNCA","PARK7","PSEN1","pTDP43-409","SNCA","SOD1","TARDBP","YWHAG") #neurodegen assoc
+#specific_values <- c("CALB2","ENO2","NEFH","NFL","UCHL1","VSNL1") #neuronal
+#specific_values <- c("S100A12","TREM1","CCL13","CCL2","CCL3","CCL4","CHI3L1","CX3CL1","CXCL8","IL10","IL15","IL16","IL18","IL1b","IL2","IL33","IL4","IL6","TAFA5") #cytokine/chemokine/immune
+#specific_values <- c("GFAP","S100B") #astroglial
+#specific_values <- c("MAPT","pTau-181","pTau-217","pTau-231") #tau
+#specific_values <- c("VEGFA","VEGFD","PGF") #vascular bio
+#specific_values <- c("MDH1","PGK1","POSTN","PRDX6") #oxidative stress, cell energy
+#specific_values <- c("ACHE","SNAP25","NPTX2") #synapse
+#specific_values <- c("BASP1","CNTN2","CRH","GOT1","IGF1","NPY","PDLIM5","REST","RUVBL2","SLIT2","SMOC1","SQSTM1","NCAM1","SFRP1") #the rest
+#specific_values <- c("SAA1","CRP") #acute phase
+
+#alamar DE analysis significant proteins
+#("ACHE","Abeta42","BACE1","BASP1","CALB2","CCL13","CCL2","CCL3","CCL4","CHI3L1","CNTN2","CRH","CRP","CX3CL1","CXCL8","ENO2","FABP3","FCN2","GFAP","GOT1","HBA1","IGF1","IL10","IL15","IL16","IL18","IL1B","IL2","IL33","IL4","IL6","KLK6","MAPT","MDH1","NCAM1","NEFH","NFL","NPTX2","NPY","Oligo-SNCA","PARK7","PDLIM5","PGF","PGK1","POSTN","PRDX6","PSEN1","pTau.181","pTau.217","pTau.231","pTDP43.409","REST","RUVBL2","S100A12","S100B","SAA1","SFRP1","SLIT2","SMOC1","SNAP25","SNCA","SOD1","SQSTM1","TAFA5","TARDBP","TREM1","UCHL1","VEGFA","VEGFD","VSNL1","YWHAG")
+
+
+forplots <- alamar_long[alamar_long$BIOMARKER %in% specific_values, ]
+
+custom_colors <- c("CON" = "seagreen", "NTT" = "royalblue", "TBI" = "red3")
+
+
+#make plots
+plot <- ggplot(forplots,aes(x=BIOMARKER,y=VALUE,fill=GROUP))+
+  geom_boxplot()+
+  facet_wrap(~BIOMARKER,scale="free")+
+  scale_fill_manual(values = custom_colors)+
+  labs(x = "BIOMARKER", y = "NPQ")
+
+
+
+print(plot)
+```
+
+
+
+install.packages("factoextra")
+library(factoextra)
+
+install.packages("fmsb")
+library(fmsb)
+
+```{r}
+##K MEANS CLUSTERING - ALAMAR
+#Tutorial https://www.datacamp.com/tutorial/k-means-clustering-r
+#Tutorial https://www.datanovia.com/en/lessons/k-means-clustering-in-r-algorith-and-practical-examples/
+
+#data preprocessing (scaling)
+alamar_cluster_input <- alamar_olink[,c(3,4,33:151,186)] #only has alamar data with ID and GROUP
+alamar_cluster_data <- alamar_cluster_input[,c(3:122)] #only has alamar data
+alamar_cluster_data <- na.omit(alamar_cluster_data)
+alamar_cluster_data <- scale(alamar_cluster_data)
+
+#kmeans clustering
+
+#run multiple models to check how many clusters
+n_clusters <- 10
+wss <- numeric(n_clusters)
+
+# Look over 1 to n possible clusters
+for (i in 1:n_clusters) {
+  # Fit the model: km.out
+  alamar_ks <- kmeans(alamar_cluster_data, centers = i, nstart = 25)
+  # Save the within cluster sum of squares
+  wss[i] <- alamar_ks$tot.withinss
+}
+
+#scree plot - pick the k at the 'elbow' of the wss values (i.e. were each additional cluster doesn't drop the wss much)
+alamar_wss_df <- tibble(clusters = 1:n_clusters, wss = wss)
+
+scree_plot <- ggplot(alamar_wss_df, aes(x = clusters, y = wss, group = 1)) +
+    geom_point(size = 4) +
+    geom_line() +
+    scale_x_continuous(breaks = c(2, 4, 6, 8, 10)) +
+    xlab('Number of clusters')
+
+print(scree_plot)
+
+scree_plot +
+    geom_hline(
+        yintercept = wss, 
+        linetype = 'dashed', 
+        col = c(rep('#000000',4),'#FF0000', rep('#000000', 5))
+    )
+
+#do the k means cluster based on best number above
+set.seed(123) #if want to keep initial seed the same (for reproducibility/ sharing purposes
+k <- 5 #forces data into 5 clusters - identified by previous step
+st <- 50 #run k-means with st different random starting assignments (should be high e.g. 25-50)
+alamar_kmeans_result_k5 <- kmeans(alamar_cluster_data, centers=k, nstart=st)
+
+#visualising results
+cluster_centers <- t(alamar_kmeans_result_k5$centers) #transposes
+
+#HEATMAP
+row_order = hclust(dist(cluster_centers))$order
+column_order = hclust(dist(t(cluster_centers)))$order
+
+#heatmap(cluster_centers[row_order,column_order], col = cm.colors(256), cexRow = 0.3, cexCol = 2, Rowv = NA, Colv = NA)
+
+#pheatmap::pheatmap(cluster_centers, color=colorRampPalette(c("lightyellow","yellow","gold","sienna1","orangered","red"))(10), fontsize = 5, treeheight_row = 0, treeheight_col = 0)
+
+pheatmap::pheatmap(alamar_kmeans_result_k5$centers, color=colorRampPalette(c("blue","white","red"))(10), fontsize = 5, treeheight_row = 0, treeheight_col = 0)
+
+
+####
+
+#stacked bar plots from k data - manually added k cluster assignment
+# Calculate proportions
+alamar_olink$alamark5cluster_14Mar24 <- as.factor(alamar_olink$alamark5cluster_14Mar24)
+my_data <- alamar_olink
+
+count_table <- table(my_data$GROUP, my_data$alamark5cluster_14Mar24)
+count_df <- as.data.frame(count_table)
+
+# Rename columns
+colnames(count_df) <- c("GROUP", "CLUSTER", "COUNT")
+
+# Plot stacked bar plot
+plot <- ggplot(count_df, aes(x = CLUSTER, y = COUNT, fill = GROUP)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Counts of GROUP within each CLUSTER",
+       x = "CLUSTER",
+       y = "Count") +
+  scale_fill_manual(values = c("TBI" = "red3", "CON" = "seagreen", "NTT" = "royalblue"))
+
+print(plot)
+
+```
+
+```{r}
+#follow on K cluster analysis tests
+
+#chi-squared of outcomes between cluster groups
+my_data <- alamar_olink
+
+contingency_table <- table(my_data$alamark5cluster_14Mar24, my_data$GOSE6mCAT)
+chi <- chisq.test(contingency_table)
+print(chi)
+
+#t test (if 2 groups)
+t.test(AGE ~ alamark5cluster_14Mar24, data = my_data)
+
+#anova (if more than 2 groups)
+test <- aov(LesionVol ~ alamark5cluster_14Mar24, data = my_data)
+summary(test)
+TukeyHSD(test)
+
+#ECI status
+data <- alamar_olink[,c("ALAMAR_ID", "GROUP", "ECI", "alamark5cluster_14Mar24")]
+data <- subset(data, GROUP=="TBI")
+data$ECIstatus <- ifelse(is.na(data$ECI), NA, ifelse(data$ECI == "ISOTBI", "NO", "YES"))
+
+contingency_table <- table(data$alamark5cluster_14Mar24, data$ECIstatus)
+chi <- chisq.test(contingency_table)
+print(chi)
+
+#plot the values based on cluster assignment
+alamark5plots <- alamar_olink[,c("BIOAX_ID","GROUP","AGE","LesionVol","Zscore_mean_skeletonFA_v1","meanCCFA_v1","alamark5cluster_14Mar24")]
+
+group_order <- c("1","2","4","3","5")
+alamark5plots$alamark5cluster_14Mar24 <- factor(alamark5plots$alamark5cluster_14Mar24, levels = group_order)
+custom_colors <- c("1" = "lightgreen", "2"="darkgreen", "4"="orangered", "3"="red4" , "5"="pink")
+dot_colours <- c("CON" = "darkgray", "TBI" = "black", "NTT"="blue")
+
+plot <- ggplot(alamark5plots, aes(x = alamark5cluster_14Mar24, y = AGE)) +
+  geom_boxplot(fill = custom_colors, color = "black", width = 0.7, outlier.shape = NA) +
+  geom_jitter(aes(color=GROUP),shape = 16, width = 0.15,size=3) +
+  scale_fill_manual(values = dot_colours, name = "GROUP")+
+  scale_color_manual(values = dot_colours, name = "GROUP") +
+  labs(x = "Cluster",
+       y = "value") +
+  theme_minimal()
+
+
+print(plot)
+
+```
+
+
+
+####NOT USED AS PCA NOT SUITABLE JUDGING BY THE INITIAL ANALYSIS
+
+install.packages("FactoMineR")
+
+library("FactoMineR") #to use PCA() function than the standard
+```{r}
+#PCA Analysis
+
+#process data
+alamar_pca_input <- alamar_olink[,c(24:143)] #only has alamar data
+alamar_pca_data <- na.omit(alamar_pca_input)
+alamar_pca_data <- scale(alamar_pca_data)
+
+#do PCA
+alamar_pca <- prcomp(alamar_pca_data)
+
+#explore PCA
+# Proportion of variance explained by each PC
+alamar_prop_var <- alamar_pca$sdev^2 / sum(alamar_pca$sdev^2)
+
+# Print the proportion of variance explained
+print(alamar_prop_var)
+
+# Access principal component loadings
+alamar_loadings <- alamar_pca$rotation
+p_values <- apply(alamar_loadings, 2, function(x) t.test(x)$p.value)
+result <- pcasignificance(alamar_pca, comp = 1, response = y)
+
+pcnumber <- 1
+alamar_pc1_loadings <- alamar_pca$rotation[, pc_number]
+
+barplot(alamar_pc1_loadings, names.arg = colnames(alamar_pca_input), col = ifelse(alamar_pc1_loadings > 0, "blue", "red"), main = paste("Loadings for PC", pc_number), ylab = "Loading", cex.names = 0.2, las = 2)
+
+# Access the transformed data
+alamar_pca_data <- alamar_pca$x
+
+# Scree plot
+plot(alamar_prop_var, type = "b", main = "Scree Plot", xlab = "Principal Component", ylab = "Proportion of Variance Explained", ylim = c(0, 1))
+
+# Add cumulative variance explained
+alamar_cumulative_var <- cumsum(alamar_prop_var)
+lines(alamar_cumulative_var, type = "s", col = "red")
+
+# Add a legend
+legend("topright", inset = 0.5, legend = c("Individual Variance", "Cumulative Variance"), col = c("black", "red"), lty = 1:1, cex = 0.8, bty = "n")
+
+#eigenvalues (should have PCs>1 and those PCs should explain >80% of data variance)
+alamar_singular_values <- alamar_pca$sdev
+alamar_eigenvalues <- alamar_singular_values^2
+
+#Plotting PCs
+alamar_pc1 <- alamar_pca_data[, 1]
+alamar_pc2 <- alamar_pca_data[, 2]
+alamar_pc3 <- alamar_pca_data[, 3]
+alamar_pc4 <- alamar_pca_data[, 4]
+alamar_pc5 <- alamar_pca_data[, 5]
+
+# Create a loading plot of PC1 against PC2
+biplot(alamar_pca, scale = 0, cex = 0.7)
+text(alamar_loadings[,2], alamar_loadings[,3], labels = colnames(alamar_loadings), pos = 1, offset = 0.5, cex = 0.7, col = "blue")
+
+# Create a plot of PC1 v PC2 with colours based on groups
+alamar_olink$GROUP <- as.factor(alamar_olink$GROUP)
+
+plot(alamar_pc1, alamar_pc2, col = alamar_olink$GROUP, pch = 16, cex=1.5, main = "PCA: PC1 vs PC2", xlab = "Principal Component 1", ylab = "Principal Component 2")
+
+legend("topright", legend = levels(alamar_olink$GROUP), col = 1:length(levels(alamar_olink$GROUP)), pch = 16)
+
+
+
+```
